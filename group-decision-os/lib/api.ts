@@ -1,10 +1,14 @@
 import { storage } from './storage';
 
 /**
- * Base URL of the GDO backend. On web during development this is localhost.
- * For a physical device you'd point this at your machine's LAN IP instead.
+ * Base URL of the GDO backend.
+ *
+ * Set EXPO_PUBLIC_API_URL at build time (e.g. the deployed Render URL on Vercel,
+ * or your machine's LAN IP for a physical device). Defaults to localhost for
+ * local web/simulator development.
  */
-export const API_BASE = 'http://localhost:3000';
+export const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 const TOKEN_KEY = 'gdo.token';
 const NAME_KEY = 'gdo.name';

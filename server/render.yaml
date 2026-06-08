@@ -1,0 +1,18 @@
+# Render Blueprint for the GDO API (free tier, native Node runtime).
+# Deploy: New + → Blueprint → point at this repo. Render reads rootDir: server.
+# Set DATABASE_URL (your Neon connection string) in the dashboard — it is not
+# synced from here. JWT_SECRET is generated automatically.
+services:
+  - type: web
+    name: gdo-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node dist/main.js
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
