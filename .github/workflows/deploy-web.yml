@@ -49,6 +49,10 @@ jobs:
           # Stop Jekyll from stripping the _expo/ asset directory.
           touch dist/.nojekyll
       - uses: actions/configure-pages@v5
+        # Auto-enable Pages (build type = GitHub Actions) so no manual
+        # Settings → Pages toggle is needed.
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: group-decision-os/dist
