@@ -7,8 +7,11 @@ import { storage } from './storage';
  * or your machine's LAN IP for a physical device). Defaults to localhost for
  * local web/simulator development.
  */
+// Use `||` (not `??`) so an empty/unset build-time value falls back to
+// localhost rather than becoming '' (which would make requests relative —
+// e.g. a POST to a static host returns 405).
 export const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+  process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 const TOKEN_KEY = 'gdo.token';
 const NAME_KEY = 'gdo.name';
