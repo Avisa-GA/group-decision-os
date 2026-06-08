@@ -83,10 +83,23 @@ export interface DecisionDetail {
   description?: string | null;
   status: DecisionStatus;
   isOwner: boolean;
+  inviteToken?: string | null; // owner only
+  participantCount: number;
+  slotsLeft: number;
   totalVotes: number;
   myVoteOptionId: string | null;
   options: OptionView[];
   result: { winningOptionId: string | null; tie: boolean } | null;
+}
+
+export interface InvitePreview {
+  decisionId: string;
+  title: string;
+  description?: string | null;
+  invitedBy: string;
+  alreadyIn: boolean;
+  full: boolean;
+  slotsLeft: number;
 }
 
 // ---- API calls ----
@@ -127,3 +140,9 @@ export const castVote = (id: string, optionId: string) =>
 
 export const lockDecision = (id: string) =>
   request<DecisionDetail>(`/decisions/${id}/lock`, { method: 'POST' });
+
+export const previewInvite = (token: string) =>
+  request<InvitePreview>(`/invite/${token}`);
+
+export const joinInvite = (token: string) =>
+  request<{ decisionId: string }>(`/invite/${token}/join`, { method: 'POST' });

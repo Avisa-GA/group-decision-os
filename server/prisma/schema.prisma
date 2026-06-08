@@ -23,9 +23,30 @@ model User {
   id        String     @id @default(cuid())
   name      String
   email     String?    @unique
-  createdAt DateTime   @default(now())
-  decisions Decision[] @relation("CreatedBy")
-  votes     Vote[]
+  createdAt    DateTime              @default(now())
+  decisions    Decision[]            @relation("CreatedBy")
+  votes        Vote[]
+  participantIn DecisionParticipant[]
+}
+
+enum ParticipantRole {
+  OWNER
+  MEMBER
+}
+
+// Who may access a decision. The creator is added as OWNER; people who follow
+// an invite link join as MEMBER (capped). Membership gates viewing/voting so
+// invitees only ever see the one decision they were invited to.
+model DecisionParticipant {
+  id         String          @id @default(cuid())
+  decisionId String
+  decision   Decision        @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id])
+  role       ParticipantRole @default(MEMBER)
+  joinedAt   DateTime        @default(now())
+
+  @@unique([decisionId, userId])
 }
 
 model Decision {
@@ -37,10 +58,11 @@ model Decision {
   inviteToken String         @unique @default(cuid()) // reserved for invite-link iteration
   createdById String
   createdBy   User           @relation("CreatedBy", fields: [createdById], references: [id])
-  options     Option[]
-  votes       Vote[]
-  result      Result?
-  createdAt   DateTime       @default(now())
+  options      Option[]
+  votes        Vote[]
+  result       Result?
+  participants DecisionParticipant[]
+  createdAt    DateTime              @default(now())
 }
 
 model Option {

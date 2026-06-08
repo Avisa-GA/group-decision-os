@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   addOption,
@@ -26,6 +28,28 @@ export default function DecisionDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [newOption, setNewOption] = useState('');
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function inviteUrl(token: string) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      // Strip the current /decisions/<id> (or /invite/...) to get the app base
+      // (e.g. /group-decision-os on Pages, '' locally), then point at /invite.
+      const base = window.location.pathname
+        .replace(/\/(decisions|invite)\/.*$/, '')
+        .replace(/\/$/, '');
+      return `${window.location.origin}${base}/invite/${token}`;
+    }
+    return Linking.createURL(`/invite/${token}`);
+  }
+
+  async function copyInvite(token: string) {
+    const url = inviteUrl(token);
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -86,12 +110,38 @@ export default function DecisionDetailScreen() {
       {decision.description ? (
         <Text style={styles.description}>{decision.description}</Text>
       ) : null}
-      <Text style={styles.meta}>{decision.totalVotes} total votes</Text>
+      <Text style={styles.meta}>
+        {decision.participantCount} {decision.participantCount === 1 ? 'person' : 'people'} ·{' '}
+        {decision.totalVotes} votes
+      </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {/* ---- DRAFT: add options ---- */}
-      {status === 'DRAFT' && isOwner ? (
+      {/* ---- Owner: share invite link ---- */}
+      {isOwner && decision.inviteToken && status !== 'LOCKED' ? (
+        <View style={styles.share}>
+          <Text style={styles.shareLabel}>
+            Invite up to 5 people ({decision.slotsLeft} spot
+            {decision.slotsLeft === 1 ? '' : 's'} left)
+          </Text>
+          <View style={styles.shareRow}>
+            <TextInput
+              style={styles.shareInput}
+              value={inviteUrl(decision.inviteToken)}
+              editable={false}
+              selectTextOnFocus
+            />
+            {Platform.OS === 'web' ? (
+              <Pressable style={styles.copyButton} onPress={() => copyInvite(decision.inviteToken!)}>
+                <Text style={styles.copyButtonText}>{copied ? 'Copied!' : 'Copy'}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+
+      {/* ---- DRAFT: add options (any participant) ---- */}
+      {status === 'DRAFT' ? (
         <View style={styles.addRow}>
           <TextInput
             style={styles.addInput}
@@ -211,6 +261,34 @@ const styles = StyleSheet.create({
   badge_VOTING: { backgroundColor: '#2563eb' },
   badge_LOCKED: { backgroundColor: '#16a34a' },
   badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  share: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: '#eef2ff',
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+  },
+  shareLabel: { fontSize: 13, fontWeight: '600', color: '#3730a3', marginBottom: 8 },
+  shareRow: { flexDirection: 'row', gap: 8 },
+  shareInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: '#334155',
+  },
+  copyButton: {
+    backgroundColor: BRAND,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  copyButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   addRow: { flexDirection: 'row', gap: 8, marginTop: 18 },
   addInput: {
     flex: 1,

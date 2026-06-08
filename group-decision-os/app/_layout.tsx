@@ -19,6 +19,7 @@ export default function RootLayout() {
         <Stack.Screen name="decisions/index" options={{ title: 'Decisions' }} />
         <Stack.Screen name="decisions/new" options={{ title: 'New Decision' }} />
         <Stack.Screen name="decisions/[id]" options={{ title: 'Decision' }} />
+        <Stack.Screen name="invite/[token]" options={{ title: 'Invitation' }} />
       </Stack>
     </>
   );
