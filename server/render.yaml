@@ -10,7 +10,9 @@ services:
     rootDir: server
     buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && node dist/main.js
-    autoDeploy: true
+    # Deploys are triggered by the GitHub Actions deploy-api workflow (deploy
+    # hook), so disable Render's own auto-deploy to avoid double builds.
+    autoDeploy: false
     envVars:
       - key: DATABASE_URL
         sync: false

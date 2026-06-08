@@ -1,0 +1,47 @@
+name: Deploy API (Render)
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Build + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+      - run: npm test
+
+  deploy:
+    name: Trigger Render deploy
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fire Render deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set."
+            echo "Create the service from server/render.yaml on Render, copy its"
+            echo "Deploy Hook URL (Settings → Deploy Hook), and add it as a repo secret."
+            exit 1
+          fi
+          echo "Triggering Render deploy…"
+          curl -fsSL -X POST "$HOOK"
+          echo "Render build started (it pulls this commit and runs migrate deploy)."

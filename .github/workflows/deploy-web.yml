@@ -1,0 +1,65 @@
+name: Deploy Web (GitHub Pages)
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'group-decision-os/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+# Permissions required by the GitHub Pages deployment actions.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; newer pushes supersede in-flight ones.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build web export
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: group-decision-os
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: group-decision-os/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - name: Export web (sub-path + API URL baked in)
+        env:
+          # Project Pages are served from /<repo>/. Must match the repo name.
+          EXPO_BASE_URL: /group-decision-os
+          # Public URL of the deployed Render API. Set as a repo variable.
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+        run: npx expo export -p web
+      - name: SPA fallback + disable Jekyll
+        run: |
+          # GitHub Pages has no rewrites; serve index.html for unknown deep links.
+          cp dist/index.html dist/404.html
+          # Stop Jekyll from stripping the _expo/ asset directory.
+          touch dist/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: group-decision-os/dist
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

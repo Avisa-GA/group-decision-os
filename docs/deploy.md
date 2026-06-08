@@ -1,74 +1,81 @@
-# Deploying Group Decision OS for free
+# Deploying Group Decision OS (free, GitHub-driven)
 
-Free stack: **Neon** (Postgres) · **Render** (NestJS API) · **Vercel** (Expo web).
-Everything needed is already in the repo — `server/render.yaml`, `server/Dockerfile`,
-and `group-decision-os/vercel.json`. You connect the accounts; deploys are config-driven.
+Free stack, deployed by **GitHub Actions**:
 
-Order matters: **DB → API → Web** (each step produces a value the next one needs).
+| Piece | Host | Trigger |
+|---|---|---|
+| Postgres | **Neon** | created once (manual) |
+| API (NestJS) | **Render** free web service | `deploy-api.yml` → Render deploy hook |
+| Web (Expo export) | **GitHub Pages** | `deploy-web.yml` → Pages |
 
----
+Workflows live in `.github/workflows/`:
+- `ci.yml` — builds + tests both sides on every push/PR.
+- `deploy-api.yml` — on `server/**` changes: build + test, then fire the Render deploy hook.
+- `deploy-web.yml` — on `group-decision-os/**` changes: build the web export (sub-path + API URL) and publish to Pages.
 
-## 1. Database — Neon
-
-1. Sign up at <https://neon.tech> and create a project (pick a region near you).
-2. From the dashboard, copy the **connection string** (looks like
-   `postgresql://USER:PASSWORD@ep-xxxx.REGION.aws.neon.tech/neondb?sslmode=require`).
-3. Keep it handy — it becomes `DATABASE_URL` in step 2.
-
-> Migrations run automatically against this DB from Render (`prisma migrate deploy`),
-> so you don't run anything locally. The committed migrations in
-> `server/prisma/migrations/` are the source of truth.
-
-## 2. API — Render
-
-1. Sign up at <https://render.com> and connect your GitHub (the `Avisa-GA/group-decision-os` repo).
-2. **New + → Blueprint**, select the repo. Render detects `server/render.yaml` and
-   proposes a free web service named `gdo-api` (it already knows `rootDir: server`,
-   the build, and the start command).
-3. When prompted for env vars, set **`DATABASE_URL`** to the Neon string from step 1.
-   (`JWT_SECRET` is generated automatically; leave it.)
-4. Create/Apply. First build takes a few minutes — it installs deps, generates the
-   Prisma client, builds, runs `prisma migrate deploy`, then starts.
-5. Copy the service URL, e.g. `https://gdo-api.onrender.com`. Verify it's alive:
-   `curl -X POST https://gdo-api.onrender.com/auth/identify -H 'content-type: application/json' -d '{"name":"test"}'`
-   → should return a JWT.
-
-> **Free-tier cold starts:** the service sleeps after ~15 min idle; the next request
-> takes ~50s to wake. Fine for a demo, noticeable in use. Upgrading the Render plan
-> (or moving the API to Fly.io with the included `Dockerfile`) removes this.
-
-## 3. Web — Vercel
-
-1. Sign up at <https://vercel.com> and import the same repo.
-2. Set **Root Directory** to `group-decision-os`. Vercel reads `vercel.json`
-   (build command `npx expo export -p web`, output `dist`, SPA rewrites — all preset).
-3. Add an Environment Variable:
-   **`EXPO_PUBLIC_API_URL`** = your Render URL from step 2 (e.g. `https://gdo-api.onrender.com`).
-   This is baked into the web bundle at build time, so it must be set before/at deploy.
-4. Deploy. Open the Vercel URL — the app is live and talking to your Render API.
-
-> If you change `EXPO_PUBLIC_API_URL` later, you must **redeploy** on Vercel (it's a
-> build-time value, not runtime).
+> One-time setup order matters: **DB → API → configure secrets → Web** (the web build needs the API URL).
 
 ---
 
-## How the pieces connect
+## 1. Database — Neon (once)
+
+1. Create a project at <https://neon.tech>.
+2. Copy the **connection string** (`postgresql://…neon.tech/neondb?sslmode=require`). It becomes `DATABASE_URL` on Render.
+
+## 2. API service — Render (create once)
+
+1. At <https://render.com>, connect the GitHub repo.
+2. **New + → Blueprint** → select the repo. Render reads `server/render.yaml` (free Node service `gdo-api`, `rootDir: server`).
+3. Set env var **`DATABASE_URL`** = the Neon string. (`JWT_SECRET` auto-generates.)
+4. Apply. First deploy builds, runs `prisma migrate deploy`, and starts. Copy the URL, e.g. `https://gdo-api.onrender.com`.
+5. **Settings → Deploy Hook** → copy the hook URL (used by GitHub Actions).
+
+> `autoDeploy` is **off** in `render.yaml` — GitHub Actions is the single deploy trigger (no double builds).
+
+## 3. GitHub configuration (once)
+
+In the repo: **Settings → Secrets and variables → Actions**:
+- **Variable** `EXPO_PUBLIC_API_URL` = your Render URL (e.g. `https://gdo-api.onrender.com`).
+  *(A variable, not a secret — it's baked into the public web bundle anyway.)*
+- **Secret** `RENDER_DEPLOY_HOOK_URL` = the deploy hook from step 2.5.
+
+Then **Settings → Pages → Build and deployment → Source = GitHub Actions**.
+
+## 4. Deploy
+
+Push to `master` (or run the workflows manually via **Actions → … → Run workflow**):
+- `deploy-api.yml` builds/tests and triggers Render.
+- `deploy-web.yml` publishes the web app to Pages.
+
+Your app: **`https://<owner>.github.io/group-decision-os/`**
+(for this repo, `https://avisa-ga.github.io/group-decision-os/`).
+
+---
+
+## How it fits together
 
 ```
-Browser ──▶ Vercel (static Expo web)
-                │  fetch(EXPO_PUBLIC_API_URL)
-                ▼
-            Render (NestJS API) ──▶ Neon (Postgres)
+        push to master
+        ┌──────────────┬───────────────┐
+        ▼              ▼               ▼
+     ci.yml      deploy-api.yml   deploy-web.yml
+   (test both)   curl deploy hook  build + Pages deploy
+                       │                 │
+                       ▼                 ▼
+                 Render (API) ──▶ Neon   GitHub Pages (web)
+                                          │ fetch(EXPO_PUBLIC_API_URL)
+                                          └────────▶ Render API
 ```
 
 ## Notes & gotchas
 
-- **CORS** is already permissive (`enableCors({ origin: true })` in `server/src/main.ts`),
-  so the Vercel domain works out of the box. To lock it down, change that to your Vercel
-  URL and redeploy the API.
-- **Auth tokens** are signed with Render's generated `JWT_SECRET`; it's stable across
-  restarts, so existing logins keep working.
-- **Native apps (iOS/Android):** this guide covers the web build. Shipping to the app
-  stores uses EAS Build (`npx eas build`) with `EXPO_PUBLIC_API_URL` pointing at the same
-  Render API — a separate effort.
-- **Redeploys:** push to `master` → Render (`autoDeploy: true`) and Vercel both rebuild.
+- **Sub-path hosting:** Pages serves project sites at `/group-decision-os/`. `app.config.js`
+  sets `experiments.baseUrl` from `EXPO_BASE_URL` (the workflow passes `/group-decision-os`),
+  so assets and `expo-router` links resolve correctly. Local dev and root-hosted deploys leave it empty.
+- **SPA deep links:** the web workflow copies `index.html` → `404.html` so refreshing a
+  route like `/decisions/abc` works, and adds `.nojekyll` so the `_expo/` assets aren't stripped.
+- **API URL is build-time:** changing `EXPO_PUBLIC_API_URL` requires re-running `deploy-web.yml`.
+- **Render free cold start:** ~50s wake after ~15 min idle. The included `server/Dockerfile`
+  lets you move the API to Fly.io if that matters.
+- **CORS** already reflects any origin (`server/src/main.ts`), so the Pages domain works as-is.
+- **Native apps:** out of scope here; use EAS Build with the same `EXPO_PUBLIC_API_URL`.

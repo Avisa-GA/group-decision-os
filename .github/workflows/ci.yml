@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  server:
+    name: Backend (build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+      - run: npm test
+
+  mobile:
+    name: Mobile (typecheck + web export)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: group-decision-os
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: group-decision-os/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - name: Verify web export builds
+        env:
+          EXPO_PUBLIC_API_URL: https://example.invalid
+        run: npx expo export -p web
