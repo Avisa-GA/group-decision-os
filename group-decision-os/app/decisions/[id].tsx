@@ -140,6 +140,24 @@ export default function DecisionDetailScreen() {
         </View>
       ) : null}
 
+      {/* ---- People in this decision ---- */}
+      <View style={styles.people}>
+        <Text style={styles.peopleLabel}>People ({decision.participantCount})</Text>
+        {decision.participants.map((p) => (
+          <View key={p.id} style={styles.personRow}>
+            <Text style={styles.personName}>
+              {p.name}
+              {p.role === 'OWNER' ? ' · owner' : ''}
+            </Text>
+            {status !== 'DRAFT' ? (
+              <Text style={[styles.voteTag, p.voted ? styles.votedTag : styles.notVotedTag]}>
+                {p.voted ? 'voted' : 'not yet'}
+              </Text>
+            ) : null}
+          </View>
+        ))}
+      </View>
+
       {/* ---- DRAFT: add options (any participant) ---- */}
       {status === 'DRAFT' ? (
         <View style={styles.addRow}>
@@ -289,6 +307,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   copyButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  people: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  peopleLabel: { fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 4 },
+  personRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  personName: { fontSize: 15, color: '#0f172a' },
+  voteTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    overflow: 'hidden',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  votedTag: { backgroundColor: '#dcfce7', color: '#166534' },
+  notVotedTag: { backgroundColor: '#f1f5f9', color: '#94a3b8' },
   addRow: { flexDirection: 'row', gap: 8, marginTop: 18 },
   addInput: {
     flex: 1,

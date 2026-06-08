@@ -86,6 +86,7 @@ export interface DecisionDetail {
   inviteToken?: string | null; // owner only
   participantCount: number;
   slotsLeft: number;
+  participants: { id: string; name: string; role: 'OWNER' | 'MEMBER'; voted: boolean }[];
   totalVotes: number;
   myVoteOptionId: string | null;
   options: OptionView[];

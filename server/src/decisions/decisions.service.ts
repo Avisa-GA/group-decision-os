@@ -52,7 +52,10 @@ export class DecisionsService {
         votes: true,
         result: true,
         createdBy: { select: { id: true, name: true } },
-        participants: { select: { userId: true, role: true } },
+        participants: {
+          orderBy: { joinedAt: 'asc' },
+          select: { userId: true, role: true, user: { select: { id: true, name: true } } },
+        },
       },
     });
     if (!decision) throw new NotFoundException('Decision not found');
@@ -81,6 +84,12 @@ export class DecisionsService {
       isOwner,
       participantCount: memberCount + 1, // members + owner
       slotsLeft: Math.max(0, MAX_INVITEES - memberCount),
+      participants: decision.participants.map((p) => ({
+        id: p.user.id,
+        name: p.user.name,
+        role: p.role,
+        voted: decision.votes.some((v) => v.userId === p.userId),
+      })),
       totalVotes: decision.votes.length,
       myVoteOptionId: myVote?.optionId ?? null,
       options: decision.options.map((o) => ({
