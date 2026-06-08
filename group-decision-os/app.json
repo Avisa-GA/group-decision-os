@@ -3,6 +3,7 @@
     "name": "Group Decision OS",
     "slug": "group-decision-os",
     "version": "1.0.0",
+    "scheme": "gdo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,6 +21,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-secure-store"
+    ]
   }
 }

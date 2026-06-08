@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DecisionStatus {
+  DRAFT // creator still adding options
+  VOTING // open for votes
+  LOCKED // finalized, result computed, read-only
+}
+
+enum VoteMode {
+  SIMPLE // one option per user
+  RANKED // reserved (post-MVP)
+  WEIGHTED // reserved (post-MVP)
+}
+
+model User {
+  id        String     @id @default(cuid())
+  name      String
+  email     String?    @unique
+  createdAt DateTime   @default(now())
+  decisions Decision[] @relation("CreatedBy")
+  votes     Vote[]
+}
+
+model Decision {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  status      DecisionStatus @default(DRAFT)
+  voteMode    VoteMode       @default(SIMPLE)
+  inviteToken String         @unique @default(cuid()) // reserved for invite-link iteration
+  createdById String
+  createdBy   User           @relation("CreatedBy", fields: [createdById], references: [id])
+  options     Option[]
+  votes       Vote[]
+  result      Result?
+  createdAt   DateTime       @default(now())
+}
+
+model Option {
+  id         String   @id @default(cuid())
+  decisionId String
+  decision   Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  title      String
+  metadata   Json? // image, price, notes — free-form per PRD
+  createdAt  DateTime @default(now())
+  votes      Vote[]
+}
+
+model Vote {
+  id         String   @id @default(cuid())
+  decisionId String
+  decision   Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  optionId   String
+  option     Option   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  weight     Int      @default(1) // 1 for SIMPLE; rank/points for later modes
+  createdAt  DateTime @default(now())
+
+  // SIMPLE mode: one vote per (decision, user). Replacing a vote updates this row.
+  @@unique([decisionId, userId])
+}
+
+model Result {
+  decisionId      String   @id
+  decision        Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  winningOptionId String? // null when the vote ended in a tie or had no votes
+  tie             Boolean  @default(false)
+  breakdown       Json // per-option tallies snapshotted at lock time
+  computedAt      DateTime @default(now())
+}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+*.log
+
+# Prisma generated client (regenerated via `prisma generate`)
+# (kept out of VCS; CI/dev runs prisma generate)
