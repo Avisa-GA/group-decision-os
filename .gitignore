@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+
+# Logs
+*.log
+
+# Node (per-package gitignores also apply)
+node_modules/
+
+# Env
+.env
+.env.local
